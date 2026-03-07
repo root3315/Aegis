@@ -7,7 +7,7 @@ Provides port scanning, service detection, and vulnerability assessment.
 import socket
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Callable, Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass, field
 from enum import Enum, auto
 import time
@@ -261,13 +261,13 @@ class NetworkScanner:
         
         return "unknown"
     
-    def scan(self, progress_callback: Optional[callable] = None) -> List[PortResult]:
+    def scan(self, progress_callback: Optional[Callable] = None) -> List[PortResult]:
         """
         Perform port scan on all configured ports.
-        
+
         Args:
             progress_callback: Optional callback for progress updates
-            
+
         Returns:
             List of PortResult for all scanned ports
         """
