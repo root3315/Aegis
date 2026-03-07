@@ -167,28 +167,47 @@ class NetworkScanner:
     
     def scan_port(self, port: int) -> PortResult:
         """
-        Scan a single port.
-        
+        Scan a single port with retry logic.
+
         Args:
             port: Port number to scan
-            
+
+        Returns:
+            PortResult with scan information
+        """
+        for attempt in range(self.config.max_retries + 1):
+            result = self._scan_port_attempt(port, attempt)
+            if result.state != PortState.UNKNOWN or attempt >= self.config.max_retries:
+                return result
+            self.logger.debug(f"Retry {attempt + 1}/{self.config.max_retries} for port {port}")
+            time.sleep(0.1 * (attempt + 1))
+        return result
+
+    def _scan_port_attempt(self, port: int, attempt: int) -> PortResult:
+        """
+        Single attempt to scan a port.
+
+        Args:
+            port: Port number to scan
+            attempt: Current attempt number (0-based)
+
         Returns:
             PortResult with scan information
         """
         start_time = time.time()
         state = PortState.UNKNOWN
         banner = ""
-        
+
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(self.config.timeout)
-            
+
             result = sock.connect_ex((self.config.target, port))
             response_time = time.time() - start_time
-            
+
             if result == 0:
                 state = PortState.OPEN
-                
+
                 # Attempt banner grabbing for service detection
                 if self.config.security_level != SecurityLevel.STEALTH:
                     try:
@@ -198,27 +217,27 @@ class NetworkScanner:
                         pass
                     except Exception:
                         pass
-                
+
                 # Identify service
                 service = self.SERVICE_SIGNATURES.get(port, "unknown")
                 if banner and not service:
                     service = self._identify_service_from_banner(banner)
-                
+
             elif result == 113:  # Connection refused with ICMP unreachable
                 state = PortState.FILTERED
             else:
                 state = PortState.CLOSED
-            
+
             sock.close()
-            
+
         except socket.timeout:
             state = PortState.FILTERED
             response_time = self.config.timeout
         except socket.error as e:
-            self.logger.debug(f"Socket error on port {port}: {e}")
-            state = PortState.FILTERED
+            self.logger.debug(f"Socket error on port {port} (attempt {attempt}): {e}")
+            state = PortState.UNKNOWN
             response_time = time.time() - start_time
-        
+
         return PortResult(
             port=port,
             state=state,
