@@ -63,15 +63,18 @@ class ScanConfig:
     
     def __post_init__(self) -> None:
         """Validate and normalize configuration after initialization."""
+        if not self.target or not self.target.strip():
+            raise ValueError("Target cannot be empty")
+
         if self.ports is None:
             self.ports = self.COMMON_PORTS.copy()
-        
+
         if self.timeout <= 0:
             raise ValueError("Timeout must be positive")
-        
+
         if self.max_retries < 0:
             raise ValueError("Max retries cannot be negative")
-        
+
         if self.threads < 1:
             raise ValueError("Thread count must be at least 1")
     
